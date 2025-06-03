@@ -62,6 +62,7 @@ bythoqPCR$DNACopiesperuLL[is.na(bythoqPCR$DNACopiesperuLL)]<-0
 
 bythoqPCRmeansconv<-aggregate(DNACopiesperuLLconv ~ Day + Tankno + Year, data=bythoqPCR, mean)
 bythoqPCRmeans<-aggregate(DNACopiesperuLL ~ Day + Tankno + Year, data=bythoqPCR, mean)
+write.csv(bythoqPCRmeans,"bythoqPCRmeans.csv")
 
 #Set detection limit (Dil15)
 bythoqPCRmeansconv$DNACopiesperuLLconv[bythoqPCRmeansconv$DNACopiesperuLL<0.0008] <- 0
