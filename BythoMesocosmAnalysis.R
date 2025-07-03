@@ -63,6 +63,7 @@ bythoqPCR$DNACopiesperuLL[is.na(bythoqPCR$DNACopiesperuLL)]<-0
 bythoqPCRmeansconv<-aggregate(DNACopiesperuLLconv ~ Day + Tankno + Year, data=bythoqPCR, mean)
 bythoqPCRmeans<-aggregate(DNACopiesperuLL ~ Day + Tankno + Year, data=bythoqPCR, mean)
 write.csv(bythoqPCRmeans,"bythoqPCRmeans.csv")
+#use this to create day of first detection dataset
 
 #Set detection limit (Dil15)
 bythoqPCRmeansconv$DNACopiesperuLLconv[bythoqPCRmeansconv$DNACopiesperuLL<0.0008] <- 0
@@ -92,7 +93,6 @@ bytho2qelongnoct<-subset(bytho1qelong,BarbNoIntro!="None")
 #remove day of intro sampling
 bytho2qelongnoct2<-subset(bytho2qelongnoct,Day>2)
 
-
 #merge environmental, physical and qPCR datasets wide
 bytho2122qPCRwideconv<-merge(bytho2122,bythoqPCRwideconv)
 bytho2122qPCRwide<-merge(bytho2122,bythoqPCRwide)
@@ -106,6 +106,14 @@ bytho2qewide<-merge(bythoenvqPCRwide,bytho2122)
 #remove negative control tanks
 bytho2qewidenoctconv<-subset(bytho2qewideconv,BarbNoIntro!="None")
 bytho2qewidenoct<-subset(bytho2qewide,BarbNoIntro!="None")
+
+#upload day of first detection dataset
+bythoday1st<-read.csv("Day1stDetect.csv")
+#merge with physical
+day1phys<-merge(bythoday1st,bytho2122)
+day1physnocont<-subset(day1phys,Barb!="NA")
+#merge with environmental
+Day1physenv<-merge(day1phys,bythoenvwide)
 
 #####################################################
 #examine negative control tanks
@@ -237,6 +245,116 @@ bythocorrelationslong<-cor(bytho2qelongnoct[,c(3:10,12,14:41,46,48:50)],use="pai
 #TurbidityFNU TotalChlorugL 0.89165369
 #Didn't check correlations among bytho physical parameters
 #keep total chlorophyl and remove cond and turb
+
+#First look at day of first detection and relationship to what was added
+#convert NA's to 0's for those where it was never detected
+day1physnocont$FirstDay0<-day1physnocont$FirstDay
+day1physnocont$FirstDay0[is.na(day1physnocont$FirstDay0)] <- 0
+ggplot(day1physnocont, aes(x=NoIntro, y=FirstDay0)) + 
+  geom_jitter(size=2, width=.3, height=.3) +
+  labs(x ="Number Introduced", 
+       y = "Day first detected")+
+  theme(panel.background = element_rect(fill = "white", colour = "grey50"),
+        axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
+        axis.text.x=element_text(size=14),axis.text.y = element_text(size=14),
+        legend.title=element_text(size=20),legend.text = element_text(size=16),
+        strip.text.x = element_text(size = 20),strip.text.y=element_text(size = 20))+
+  facet_grid(.~Year)
+
+lm1stdetect<- lm(FirstDay ~ NoIntro+Barb+Year,
+                          data = day1phys)
+summary(lm1stdetect)
+#Year significant
+
+#See what environmental variables differed year to year
+
+#Temp
+ggplot(bythoenv, aes(x=Day, y=TempC)) + 
+  geom_jitter(size=2, width=.3, height=.3) +
+  labs(x ="Day", 
+       y = "Temperature")+
+  theme(panel.background = element_rect(fill = "white", colour = "grey50"),
+        axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
+        axis.text.x=element_text(size=14),axis.text.y = element_text(size=14),
+        legend.title=element_text(size=20),legend.text = element_text(size=16),
+        strip.text.x = element_text(size = 20),strip.text.y=element_text(size = 20))+
+  facet_grid(.~Year)
+
+#Temperature higher on starting day in 2022 than 2021
+
+#Conductivity
+ggplot(bythoenv, aes(x=Day, y=CondmScm)) + 
+  geom_jitter(size=2, width=.3, height=.3) +
+  labs(x ="Day", 
+       y = "Conductivity")+
+  theme(panel.background = element_rect(fill = "white", colour = "grey50"),
+        axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
+        axis.text.x=element_text(size=14),axis.text.y = element_text(size=14),
+        legend.title=element_text(size=20),legend.text = element_text(size=16),
+        strip.text.x = element_text(size = 20),strip.text.y=element_text(size = 20))+
+  facet_grid(.~Year)
+#Conductivity much lower in 2022 compared to 2021
+
+#pH
+ggplot(bythoenv, aes(x=Day, y=pH)) + 
+  geom_jitter(size=2, width=.3, height=.3) +
+  labs(x ="Day", 
+       y = "pH")+
+  theme(panel.background = element_rect(fill = "white", colour = "grey50"),
+        axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
+        axis.text.x=element_text(size=14),axis.text.y = element_text(size=14),
+        legend.title=element_text(size=20),legend.text = element_text(size=16),
+        strip.text.x = element_text(size = 20),strip.text.y=element_text(size = 20))+
+  facet_grid(.~Year)
+#pH slightly lower to start in 2022
+
+#Turbidity
+ggplot(bythoenv, aes(x=Day, y=TurbidityFNU)) + 
+  geom_jitter(size=2, width=.3, height=.3) +
+  labs(x ="Day", 
+       y = "Turbidity")+
+  theme(panel.background = element_rect(fill = "white", colour = "grey50"),
+        axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
+        axis.text.x=element_text(size=14),axis.text.y = element_text(size=14),
+        legend.title=element_text(size=20),legend.text = element_text(size=16),
+        strip.text.x = element_text(size = 20),strip.text.y=element_text(size = 20))+
+  facet_grid(.~Year)
+#Turbidity much higher in 2022
+
+#DO
+ggplot(bythoenv, aes(x=Day, y=DOmgL)) + 
+  geom_jitter(size=2, width=.3, height=.3) +
+  labs(x ="Day", 
+       y = "Dissolved Oxygen")+
+  theme(panel.background = element_rect(fill = "white", colour = "grey50"),
+        axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
+        axis.text.x=element_text(size=14),axis.text.y = element_text(size=14),
+        legend.title=element_text(size=20),legend.text = element_text(size=16),
+        strip.text.x = element_text(size = 20),strip.text.y=element_text(size = 20))+
+  facet_grid(.~Year)
+#Do slighltly higher on innoculation day in 2022
+
+#Chloroph
+ggplot(bythoenv, aes(x=Day, y=TotalChlorugL)) + 
+  geom_jitter(size=2, width=.3, height=.3) +
+  labs(x ="Day", 
+       y = "Chlorophyl")+
+  theme(panel.background = element_rect(fill = "white", colour = "grey50"),
+        axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
+        axis.text.x=element_text(size=14),axis.text.y = element_text(size=14),
+        legend.title=element_text(size=20),legend.text = element_text(size=16),
+        strip.text.x = element_text(size = 20),strip.text.y=element_text(size = 20))+
+  facet_grid(.~Year)
+#Chlorophyl a much higher in 2022
+
+#Run model again with environmental parameters as well as year
+lm1stdetectenv<- lm(FirstDay ~ NoIntro+Barb+TempC.2+TotalChlorugL.2+pH.2+DOmgL.2+Year,
+                 data = Day1physenv)
+summary(lm1stdetectenv)
+
+
+
+
 
 #build linear mixed effects model
 names(bytho2qelongnoct)
