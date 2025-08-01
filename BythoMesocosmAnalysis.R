@@ -9,6 +9,10 @@ library(lme4)
 library(sjPlot)
 library(MASS)
 
+######################
+#Color vectors
+yearcolvec<-c("#1b9e77","#d95f02")
+
 #################################
 #Upload and standardize datasets
 
@@ -203,6 +207,7 @@ bytho2qelongnoct2$logDNACpuLLno<-log10(bytho2qelongnoct2$DNACpuLLno+1)
 
 #binary variable
 bytho2qelongnoct$DNADetect<- as.numeric(bytho2qelongnoct$DNACpuLL>0)
+bytho2qelongnoct2$DNADetect<- as.numeric(bytho2qelongnoct2$DNACpuLL>0)
 
 #Day of first detection
 shapiro.test(Day1physenv$FirstDay)
@@ -381,11 +386,12 @@ summary(lm1stdetectbest)
 
 #plot pH
 ggplot(Day1physenv, aes(x=pH.2, y=(FirstDay-2))) + 
-  geom_point() +
-  geom_smooth(method=lm, se=F, color="black", )+
+  geom_point(aes(color=factor(Year))) +
+  geom_smooth(method=lm, se=F, color="black")+
   scale_y_continuous(trans="log10")+
   labs(x ="pH at Introduction", 
-       y = "Day of First Detection")+
+       y = "Day of First Detection", color="Year")+
+  scale_color_manual(values=yearcolvec)+
   theme(panel.background = element_rect(fill = "white", colour = "grey50"),
         axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
         axis.text.x=element_text(size=14),axis.text.y = element_text(size=14),
@@ -393,11 +399,12 @@ ggplot(Day1physenv, aes(x=pH.2, y=(FirstDay-2))) +
         strip.text.x = element_text(size = 20),strip.text.y=element_text(size = 20))
 #plot DO
 ggplot(Day1physenv, aes(x=DOmgL.2, y=(FirstDay-2))) + 
-  geom_point() +
+  geom_point(aes(color=factor(Year))) +
   geom_smooth(method=lm, se=F, color="black", )+
   scale_y_continuous(trans="log10")+
   labs(x ="Dissolved Oxygen (mg/L) at Introduction", 
-       y = "Day of First Detection")+
+       y = "Day of First Detection", color="Year")+
+  scale_color_manual(values=yearcolvec)+
   theme(panel.background = element_rect(fill = "white", colour = "grey50"),
         axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
         axis.text.x=element_text(size=14),axis.text.y = element_text(size=14),
@@ -756,6 +763,114 @@ ggplot(bytho2qelongnoct, aes(x=StartLivingBiomass, y=DNACpuLLno)) +
 
 #Final result - barb and day significant
 
+
+###Use binary response variable now
+fulllmbythocountenvbi<-lm(DNADetect ~ (Barb*NoIntro+OneBarbLiveBarren+TwoBarbLiveGravid+
+                                           ThreeBarbLiveGravid+OneBarbDeadBarren+TwoBarbDeadGravid+
+                                           ThreeBarbDeadGravid+OneBarbSpine+TwoBarbSpine+ThreeBarbSpine+kink+TotalMoultsRound+
+                                           as.factor(Year))*Day+TempC+DOmgL,data = bytho2qelongnoct2nar)
+stepAIC(fulllmbythocountenvbi, direction="both")
+#AIC -66
+bestlmbythocountenvbi<-lm(formula = DNADetect ~ Barb + NoIntro + OneBarbLiveBarren + 
+                          TwoBarbLiveGravid + ThreeBarbLiveGravid + OneBarbDeadBarren + 
+                          TwoBarbDeadGravid + ThreeBarbDeadGravid + OneBarbSpine + 
+                          TwoBarbSpine + ThreeBarbSpine + kink + TotalMoultsRound + 
+                          as.factor(Year) + Day + DOmgL + Barb:Day + NoIntro:Day + 
+                          OneBarbLiveBarren:Day + TwoBarbLiveGravid:Day + ThreeBarbLiveGravid:Day + 
+                          OneBarbDeadBarren:Day + OneBarbSpine:Day + TwoBarbSpine:Day + 
+                          kink:Day + TotalMoultsRound:Day, data = bytho2qelongnoct2nar)
+summary(bestlmbythocountenvbi)
+#not significant, remove day interaction
+redlmbythocountenvbi<-lm(DNADetect ~ Barb*NoIntro+OneBarbLiveBarren+TwoBarbLiveGravid+
+                                         ThreeBarbLiveGravid+OneBarbDeadBarren+TwoBarbDeadGravid+
+                                         ThreeBarbDeadGravid+OneBarbSpine+TwoBarbSpine+ThreeBarbSpine+kink+TotalMoultsRound+
+                                         as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoct2nar)
+stepAIC(redlmbythocountenvbi, direction="both")
+#AIC -63
+bestlmbythocountenvbired<-lm(formula = DNADetect ~ TwoBarbLiveGravid + ThreeBarbLiveGravid + 
+                               ThreeBarbDeadGravid + OneBarbSpine + TwoBarbSpine + kink + 
+                               TotalMoultsRound + as.factor(Year), data = bytho2qelongnoct2nar)
+summary(bestlmbythocountenvbired)
+#overfit, remove environmental
+redlmbythocountenvbi<-lm(DNADetect ~ Barb*NoIntro+OneBarbLiveBarren+TwoBarbLiveGravid+
+                           ThreeBarbLiveGravid+OneBarbDeadBarren+TwoBarbDeadGravid+
+                           ThreeBarbDeadGravid+OneBarbSpine+TwoBarbSpine+ThreeBarbSpine+kink+TotalMoultsRound+
+                           as.factor(Year),data = bytho2qelongnoct2)
+stepAIC(redlmbythocountenvbi, direction="both")
+#AIC -249
+bestlmbythocountenvbired<-lm(formula = DNADetect ~ TwoBarbLiveGravid + ThreeBarbDeadGravid + 
+                               OneBarbSpine + TotalMoultsRound + as.factor(Year), data = bytho2qelongnoct2)
+summary(bestlmbythocountenvbired)
+#explains so little variation, not a good model. nothing significant
+
+
+
+#Try again with DW
+fulllmbythobmbi<-lm(DNADetect ~ (Barb*StartLivingBiomass+OneBarbLiveBarrenDW+TwoBarbLiveGravidDW+
+                                     ThreeBarbLiveGravidDW+OneBarbDeadDWBarren+
+                                     TwoBarbDeadGravidDW+ThreeBarbDeadGravidDW+OneBarbSpineDW+TwoBarbSpineDW+
+                                     ThreeBarbSpineDW+kinkDW+TotalMoultsRound+as.factor(Year)+TempC+pH+DOmgL)*Day,
+                  data = bytho2qelongnoct2)
+stepAIC(fulllmbythobmbi, direction="both")
+#AIC -149
+bestlmbythobmbi<-lm(formula = DNADetect ~ Barb + StartLivingBiomass + OneBarbLiveBarrenDW + 
+                      TwoBarbLiveGravidDW + ThreeBarbLiveGravidDW + OneBarbDeadDWBarren + 
+                      TwoBarbDeadGravidDW + ThreeBarbDeadGravidDW + OneBarbSpineDW + 
+                      TwoBarbSpineDW + ThreeBarbSpineDW + kinkDW + TotalMoultsRound + 
+                      as.factor(Year) + TempC + pH + Day + Barb:Day + StartLivingBiomass:Day + 
+                      OneBarbLiveBarrenDW:Day + TwoBarbLiveGravidDW:Day + ThreeBarbLiveGravidDW:Day + 
+                      OneBarbDeadDWBarren:Day + TwoBarbDeadGravidDW:Day + ThreeBarbDeadGravidDW:Day + 
+                      OneBarbSpineDW:Day + ThreeBarbSpineDW:Day + kinkDW:Day + 
+                      TotalMoultsRound:Day + TempC:Day, data = bytho2qelongnoct2)
+summary(bestlmbythobmbi)
+#overfit, take out interaction and environmental
+redlmbythobmbi<-lm(DNADetect ~ Barb*StartLivingBiomass+OneBarbLiveBarrenDW+TwoBarbLiveGravidDW+
+                                   ThreeBarbLiveGravidDW+OneBarbDeadDWBarren+
+                                   TwoBarbDeadGravidDW+ThreeBarbDeadGravidDW+OneBarbSpineDW+TwoBarbSpineDW+
+                                   ThreeBarbSpineDW+kinkDW+TotalMoultsRound+as.factor(Year),
+                    data = bytho2qelongnoct2)
+stepAIC(redlmbythobmbi, direction="both")
+#AIC -149
+bestlmbythobmbired<-lm(formula = DNADetect ~ TwoBarbLiveGravidDW + ThreeBarbDeadGravidDW + 
+                         OneBarbSpineDW + TotalMoultsRound + as.factor(Year), data = bytho2qelongnoct2)
+summary(bestlmbythobmbired)
+#very very small rsquared again, nothing significant
+
+
+#Try again with pooled demographic variables ()
+fulllmbythocountenvgbbi<-lm(DNADetect ~ (BarbNoIntro+TotalGravidLive+TotalGravidDead+TotalBarrenLive+
+                                             OneBarbDeadBarren+TotalSpinesKinks+TotalMoultsRound+
+                                             as.factor(Year))*Day+TempC+DOmgL,data = bytho2qelongnoct2nar)
+stepAIC(fulllmbythocountenvgbbi, direction="both")
+#AIC=-80
+
+bestlmbythocountenvgbbi<-lm(formula = DNADetect ~ BarbNoIntro + OneBarbDeadBarren + TotalMoultsRound + 
+                              Day + BarbNoIntro:Day + TotalMoultsRound:Day, data = bytho2qelongnoct2nar)
+summary(bestlmbythocountenvgbbi)
+#remove interaction and environmental variablres
+redlmbythocountgbbi<-lm(DNADetect ~ BarbNoIntro+TotalGravidLive+TotalGravidDead+TotalBarrenLive+
+                                           OneBarbDeadBarren+TotalSpinesKinks+TotalMoultsRound+
+                                           as.factor(Year)+Day,data = bytho2qelongnoct2)
+stepAIC(redlmbythocountgbbi, direction="both")
+#AIC=-245
+
+bestlmbythocountenvgbbi<-lm(formula = DNADetect ~ TotalMoultsRound + as.factor(Year) + 
+                              Day, data = bytho2qelongnoct2)
+summary(bestlmbythocountenvgbbi)
+#rsquared so small, nothing significant
+
+#summary of models
+#count demoraphics - nothing significant
+#biomass demographics, nothing significant
+#counts gravid - nothing significant
+
+
+
+
+
+
+#Last day conditions
+
 #Now look at correlations among the last day conditions
 ggplot(subset(bytho2qelongnoct, Day==16), aes(x=ThreeBarbLiveGravid, y=DNACpuLLno)) + 
   geom_point() +
@@ -767,4 +882,712 @@ ggplot(subset(bytho2qelongnoct, Day==16), aes(x=ThreeBarbLiveGravid, y=DNACpuLLn
         axis.text.x=element_text(size=14),axis.text.y = element_text(size=14),
         legend.title=element_text(size=20),legend.text = element_text(size=16),
         strip.text.x = element_text(size = 20),strip.text.y=element_text(size = 20))
+
+#linear models for just the last day
+bytho2qelongnoctlast<-subset(bytho2qelongnoct, Day==16)
+
+#Examine normality again
+#Normality tests for env and dna variables
+shapiro.test(bytho2qelongnoctlast$DNACopiesperuLL)
+#non normal p<0.01
+hist(bytho2qelongnoctlast$DNACopiesperuLL)
+shapiro.test(log10(bytho2qelongnoctlast$DNACopiesperuLL+1))
+#non normal p<0.01
+hist(log10(bytho2qelongnoctlast$DNACopiesperuLL+1))
+#better but still very skewed. May need to run analyses as both quantitative and detect vs. undetect
+bytho2qelongnoctlast$logDNACpuLLno<-log10(bytho2qelongnoctlast$DNACpuLLno+1)
+
+#binary variable
+bytho2qelongnoctlast$DNADetect<- as.numeric(bytho2qelongnoctlast$DNACpuLL>0)
+
+#TempC
+shapiro.test(bytho2qelongnoctlast$TempC)
+#normal 0.71
+
+#CondmScm
+shapiro.test(bytho2qelongnoctlast$CondmScm)
+#not normal 
+hist(bytho2qelongnoctlast$CondmScm)
+#binomial, very different for 2 experiments
+
+#pH
+shapiro.test(bytho2qelongnoctlast$pH)
+#normal 0.47
+
+#TurbidityFNU
+shapiro.test(bytho2qelongnoctlast$TurbidityFNU)
+#not normal
+hist(bytho2qelongnoctlast$TurbidityFNU)
+#several values very high
+shapiro.test(log10(bytho2qelongnoctlast$TurbidityFNU))
+hist(log10(bytho2qelongnoctlast$TurbidityFNU))
+#log10 transformation helps, but still not normal
+bytho2qelongnoctlast$logTurbidityFNU<-log10(bytho2qelongnoctlast$TurbidityFNU)
+
+#DOmgL
+shapiro.test(bytho2qelongnoctlast$DOmgL)
+#notnormal
+hist(bytho2qelongnoctlast$DOmgL)
+#right skewed, so don't transform
+
+#TotalChlorugL
+shapiro.test(bytho2qelongnoctlast$TotalChlorugL)
+#not normal
+hist(bytho2qelongnoctlast$TotalChlorugL)
+#binomial distribution between two experiments
+
+bytho16correlations<-cor(bytho2qelongnoctlast[,c(2:10,12,14:55,61:64)],use="pairwise.complete.obs")
+#Conductivity, total chlorophyl, and turbidity and year correlated, keep year
+
+#build linear model using stewise AIC
+names(bytho2qelongnoctlast)
+summary(bytho2qelongnoctlast)
+#Creat new dataset with NA's removed
+bytho2qelongnoctlastnar<-subset(bytho2qelongnoctlast,logDNACpuLLno!="NA" & TempC!="NA")
+
+#don't use each individual tank/year because it's the same as all the bytho population variables
+#try with counts first, then do DW
+#try with divided counts by demographics rather than pooled
+#first use subset dataset to use env variables
+fulllmbythocountenv16<-lm(logDNACpuLLno ~ Barb*NoIntro+OneBarbLiveBarren+TwoBarbLiveGravid+
+                                           ThreeBarbLiveGravid+OneBarbDeadBarren+TwoBarbDeadGravid+
+                                           ThreeBarbDeadGravid+OneBarbSpine+TwoBarbSpine+ThreeBarbSpine+kink+TotalMoultsRound+
+                                           as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(fulllmbythocountenv16, direction="both")
+#AIC -94
+
+bestlmbythocountenv16<-lm(formula = logDNACpuLLno ~ Barb + NoIntro + TwoBarbLiveGravid + 
+                          ThreeBarbLiveGravid + ThreeBarbDeadGravid + OneBarbSpine + 
+                          TwoBarbSpine + ThreeBarbSpine + kink + TotalMoultsRound + 
+                          as.factor(Year) + TempC + Barb:NoIntro, data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenv16)
+#definitely overfit. Try again without interaction
+redlmbythocountenv16<-lm(logDNACpuLLno ~ Barb+NoIntro+OneBarbLiveBarren+TwoBarbLiveGravid+
+                            ThreeBarbLiveGravid+OneBarbDeadBarren+TwoBarbDeadGravid+
+                            ThreeBarbDeadGravid+OneBarbSpine+TwoBarbSpine+ThreeBarbSpine+kink+TotalMoultsRound+
+                            as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythocountenv16, direction="both")
+#AIC -95
+
+bestlmbythocountenvred16<-lm(formula = logDNACpuLLno ~ Barb + TwoBarbLiveGravid + ThreeBarbLiveGravid + 
+                            OneBarbDeadBarren + ThreeBarbDeadGravid + OneBarbSpine + 
+                            TwoBarbSpine + ThreeBarbSpine + TotalMoultsRound + as.factor(Year) + 
+                            TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenvred16)
+#definitely overfit. combining spines
+redlmbythocountenv16<-lm(logDNACpuLLno ~ Barb+NoIntro+OneBarbLiveBarren+TwoBarbLiveGravid+
+                           ThreeBarbLiveGravid+OneBarbDeadBarren+TwoBarbDeadGravid+
+                           ThreeBarbDeadGravid+TotalSpinesKinks+TotalMoultsRound+
+                           as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythocountenv16, direction="both")
+#AIC -95
+
+bestlmbythocountenvred16<-lm(formula = logDNACpuLLno ~ Barb + ThreeBarbLiveGravid + OneBarbDeadBarren + 
+                               ThreeBarbDeadGravid + TotalSpinesKinks + TotalMoultsRound + 
+                               as.factor(Year) + TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenvred16)
+#definitely overfit. remove OneBarbDeadBarren
+redlmbythocountenv16<-lm(logDNACpuLLno ~ Barb+NoIntro+OneBarbLiveBarren+TwoBarbLiveGravid+
+                           ThreeBarbLiveGravid+TwoBarbDeadGravid+
+                           ThreeBarbDeadGravid+TotalSpinesKinks+TotalMoultsRound+
+                           as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythocountenv16, direction="both")
+#AIC -95
+
+bestlmbythocountenvred16<-lm(formula = logDNACpuLLno ~ Barb + OneBarbLiveBarren + ThreeBarbLiveGravid + 
+                               ThreeBarbDeadGravid + TotalSpinesKinks + TotalMoultsRound + 
+                               as.factor(Year) + TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenvred16)
+#overfit, remove OneBarbLiveBarren
+redlmbythocountenv16<-lm(logDNACpuLLno ~ Barb+NoIntro+TwoBarbLiveGravid+
+                           ThreeBarbLiveGravid+TwoBarbDeadGravid+
+                           ThreeBarbDeadGravid+TotalSpinesKinks+TotalMoultsRound+
+                           as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythocountenv16, direction="both")
+#AIC -94
+
+bestlmbythocountenvred16<-lm(formula = logDNACpuLLno ~ Barb + ThreeBarbLiveGravid + ThreeBarbDeadGravid + 
+                               TotalSpinesKinks + TotalMoultsRound + as.factor(Year) + TempC, 
+                             data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenvred16)
+#overfit, remove barb
+redlmbythocountenv16<-lm(logDNACpuLLno ~ NoIntro+TwoBarbLiveGravid+
+                           ThreeBarbLiveGravid+TwoBarbDeadGravid+
+                           ThreeBarbDeadGravid+TotalSpinesKinks+TotalMoultsRound+
+                           as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythocountenv16, direction="both")
+#AIC -94
+
+bestlmbythocountenvred16<-lm(formula = logDNACpuLLno ~ TwoBarbLiveGravid + ThreeBarbLiveGravid + 
+                               TwoBarbDeadGravid + ThreeBarbDeadGravid + TotalSpinesKinks + 
+                               TotalMoultsRound + as.factor(Year) + TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenvred16)
+#overfit, remove TwoBarbDeadGravid
+redlmbythocountenv16<-lm(logDNACpuLLno ~ NoIntro+TwoBarbLiveGravid+
+                           ThreeBarbLiveGravid+ThreeBarbDeadGravid+TotalSpinesKinks+TotalMoultsRound+
+                           as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythocountenv16, direction="both")
+#AIC -94
+bestlmbythocountenvred16<-lm(formula = logDNACpuLLno ~ TwoBarbLiveGravid + ThreeBarbLiveGravid + 
+                               ThreeBarbDeadGravid + TotalSpinesKinks + TotalMoultsRound + 
+                               as.factor(Year) + TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenvred16)
+#remove TwoBarbLiveGravid
+redlmbythocountenv16<-lm(logDNACpuLLno ~ NoIntro+ThreeBarbLiveGravid+ThreeBarbDeadGravid+TotalSpinesKinks+TotalMoultsRound+
+                           as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythocountenv16, direction="both")
+#AIC -94
+bestlmbythocountenvred16<-lm(formula = logDNACpuLLno ~ ThreeBarbLiveGravid + ThreeBarbDeadGravid + 
+                               TotalSpinesKinks + TotalMoultsRound + as.factor(Year) + TempC, 
+                             data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenvred16)
+#overfit, remove TotalMoultsRound
+redlmbythocountenv16<-lm(logDNACpuLLno ~ NoIntro+ThreeBarbLiveGravid+ThreeBarbDeadGravid+TotalSpinesKinks+
+                           as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythocountenv16, direction="both")
+#AIC -88
+bestlmbythocountenvred16<-lm(formula = logDNACpuLLno ~ ThreeBarbLiveGravid + ThreeBarbDeadGravid + 
+                               TotalSpinesKinks + as.factor(Year) + TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenvred16)
+#overfit, remove TotalSpinesKinks
+redlmbythocountenv16<-lm(logDNACpuLLno ~ NoIntro+ThreeBarbLiveGravid+ThreeBarbDeadGravid+
+                           as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythocountenv16, direction="both")
+#AIC -83
+bestlmbythocountenvred16<-lm(formula = logDNACpuLLno ~ NoIntro + ThreeBarbLiveGravid + 
+                               ThreeBarbDeadGravid + as.factor(Year) + TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenvred16)
+#overfit, remove number introduced
+redlmbythocountenv16<-lm(logDNACpuLLno ~ ThreeBarbLiveGravid+ThreeBarbDeadGravid+
+                           as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythocountenv16, direction="both")
+#AIC -82
+bestlmbythocountenvred16<-lm(formula = logDNACpuLLno ~ ThreeBarbLiveGravid + ThreeBarbDeadGravid + 
+                               as.factor(Year) + TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenvred16)
+#overfit, remove ThreeBarbDeadGravid
+redlmbythocountenv16<-lm(logDNACpuLLno ~ ThreeBarbLiveGravid+as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythocountenv16, direction="both")
+#AIC -79
+bestlmbythocountenvred16<-lm(formula = logDNACpuLLno ~ ThreeBarbLiveGravid + as.factor(Year) + 
+                               TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenvred16)
+#overfit, remove temp
+redlmbythocountenv16<-lm(logDNACpuLLno ~ ThreeBarbLiveGravid+as.factor(Year)+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythocountenv16, direction="both")
+#AIC -78
+bestlmbythocountenvred16<-lm(formula = logDNACpuLLno ~ ThreeBarbLiveGravid + as.factor(Year), 
+                             data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenvred16)
+#3barblivegravid significant
+#Run again without transformation
+bestlmbythocountenvred16ut<-lm(formula = DNACpuLLno ~ ThreeBarbLiveGravid + as.factor(Year), 
+                             data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenvred16ut)
+
+
+#Now try DW
+fulllmbythobm16<-lm(logDNACpuLLno ~ Barb*StartLivingBiomass+OneBarbLiveBarrenDW+TwoBarbLiveGravidDW+
+                                     ThreeBarbLiveGravidDW+OneBarbDeadDWBarren+
+                                     TwoBarbDeadGravidDW+ThreeBarbDeadGravidDW+OneBarbSpineDW+TwoBarbSpineDW+
+                                     ThreeBarbSpineDW+kinkDW+TotalMoultsRound+as.factor(Year)+TempC+pH+DOmgL,
+                  data = bytho2qelongnoctlastnar)
+stepAIC(fulllmbythobm16, direction="both")
+#AIC -96
+
+bestlmbythobm16<-lm(formula = logDNACpuLLno ~ Barb + StartLivingBiomass + TwoBarbLiveGravidDW + 
+                    ThreeBarbLiveGravidDW + ThreeBarbDeadGravidDW + OneBarbSpineDW + 
+                    TwoBarbSpineDW + ThreeBarbSpineDW + kinkDW + TotalMoultsRound + 
+                    as.factor(Year) + TempC + Barb:StartLivingBiomass, data = bytho2qelongnoctlastnar)
+summary(bestlmbythobm16)
+#rsquared shows overfit, remove interaction
+redlmbythobm16<-lm(logDNACpuLLno ~ Barb+StartLivingBiomass+OneBarbLiveBarrenDW+TwoBarbLiveGravidDW+
+                      ThreeBarbLiveGravidDW+OneBarbDeadDWBarren+
+                      TwoBarbDeadGravidDW+ThreeBarbDeadGravidDW+OneBarbSpineDW+TwoBarbSpineDW+
+                      ThreeBarbSpineDW+kinkDW+TotalMoultsRound+as.factor(Year)+TempC+pH+DOmgL,
+                    data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythobm16, direction="both")
+#AIC -96
+bestlmbythobmred16<-lm(formula = logDNACpuLLno ~ Barb + ThreeBarbLiveGravidDW + OneBarbDeadDWBarren + 
+                         ThreeBarbDeadGravidDW + TwoBarbSpineDW + ThreeBarbSpineDW + 
+                         kinkDW + TotalMoultsRound + as.factor(Year) + TempC + pH + 
+                         DOmgL, data = bytho2qelongnoctlastnar)
+summary(bestlmbythobmred16)
+#overfit, remove spine and kink DWs
+redlmbythobm16<-lm(logDNACpuLLno ~ Barb+StartLivingBiomass+OneBarbLiveBarrenDW+TwoBarbLiveGravidDW+
+                     ThreeBarbLiveGravidDW+OneBarbDeadDWBarren+
+                     TwoBarbDeadGravidDW+ThreeBarbDeadGravidDW+TotalMoultsRound+as.factor(Year)+TempC+pH+DOmgL,
+                   data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythobm16, direction="both")
+#AIC -91
+bestlmbythobmred16<-lm(formula = logDNACpuLLno ~ Barb + StartLivingBiomass + ThreeBarbLiveGravidDW + 
+                         OneBarbDeadDWBarren + ThreeBarbDeadGravidDW + TotalMoultsRound + 
+                         as.factor(Year) + TempC + pH + DOmgL, data = bytho2qelongnoctlastnar)
+summary(bestlmbythobmred16)
+#overfit, remove total moults round
+redlmbythobm16<-lm(logDNACpuLLno ~ Barb+StartLivingBiomass+OneBarbLiveBarrenDW+TwoBarbLiveGravidDW+
+                     ThreeBarbLiveGravidDW+OneBarbDeadDWBarren+
+                     TwoBarbDeadGravidDW+ThreeBarbDeadGravidDW+as.factor(Year)+TempC+pH+DOmgL,
+                   data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythobm16, direction="both")
+#AIC -91
+bestlmbythobmred16<-lm(formula = logDNACpuLLno ~ Barb + StartLivingBiomass + TwoBarbLiveGravidDW + 
+                         ThreeBarbLiveGravidDW + OneBarbDeadDWBarren + ThreeBarbDeadGravidDW + 
+                         as.factor(Year) + TempC + pH + DOmgL, data = bytho2qelongnoctlastnar)
+summary(bestlmbythobmred16)
+#overfit, remove TwoBarbLiveGravidDW
+redlmbythobm16<-lm(logDNACpuLLno ~ Barb+StartLivingBiomass+OneBarbLiveBarrenDW+ThreeBarbLiveGravidDW+OneBarbDeadDWBarren+
+                     TwoBarbDeadGravidDW+ThreeBarbDeadGravidDW+as.factor(Year)+TempC+pH+DOmgL,
+                   data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythobm16, direction="both")
+#AIC -91
+bestlmbythobmred16<-lm(formula = logDNACpuLLno ~ Barb + StartLivingBiomass + ThreeBarbLiveGravidDW + 
+                         OneBarbDeadDWBarren + ThreeBarbDeadGravidDW + as.factor(Year) + 
+                         TempC + pH + DOmgL, data = bytho2qelongnoctlastnar)
+summary(bestlmbythobmred16)
+#overfit, remove OneBarbDeadDWBarren
+redlmbythobm16<-lm(logDNACpuLLno ~ Barb+StartLivingBiomass+OneBarbLiveBarrenDW+ThreeBarbLiveGravidDW+
+                     TwoBarbDeadGravidDW+ThreeBarbDeadGravidDW+as.factor(Year)+TempC+pH+DOmgL,
+                   data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythobm16, direction="both")
+#AIC -91
+bestlmbythobmred16<-lm(formula = logDNACpuLLno ~ Barb + StartLivingBiomass + OneBarbLiveBarrenDW + 
+                         ThreeBarbLiveGravidDW + ThreeBarbDeadGravidDW + as.factor(Year) + 
+                         TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythobmred16)
+#overfit, remove OneBarbLiveBarrenDW
+redlmbythobm16<-lm(logDNACpuLLno ~ Barb+StartLivingBiomass+ThreeBarbLiveGravidDW+
+                     TwoBarbDeadGravidDW+ThreeBarbDeadGravidDW+as.factor(Year)+TempC+pH+DOmgL,
+                   data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythobm16, direction="both")
+#AIC -86
+bestlmbythobmred16<-lm(formula = logDNACpuLLno ~ Barb + StartLivingBiomass + ThreeBarbLiveGravidDW + 
+                         ThreeBarbDeadGravidDW + as.factor(Year) + TempC + pH, data = bytho2qelongnoctlastnar)
+summary(bestlmbythobmred16)
+#overfit, remove StartLivingBiomass
+redlmbythobm16<-lm(logDNACpuLLno ~ Barb+ThreeBarbLiveGravidDW+
+                     TwoBarbDeadGravidDW+ThreeBarbDeadGravidDW+as.factor(Year)+TempC+pH+DOmgL,
+                   data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythobm16, direction="both")
+#AIC -84
+bestlmbythobmred16<-lm(formula = logDNACpuLLno ~ Barb + ThreeBarbLiveGravidDW + ThreeBarbDeadGravidDW + 
+                         TempC + pH, data = bytho2qelongnoctlastnar)
+summary(bestlmbythobmred16)
+#overfit, remove ThreeBarbDeadGravidDW
+redlmbythobm16<-lm(logDNACpuLLno ~ Barb+ThreeBarbLiveGravidDW+
+                     TwoBarbDeadGravidDW+as.factor(Year)+TempC+pH+DOmgL,
+                   data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythobm16, direction="both")
+#AIC -79
+bestlmbythobmred16<-lm(formula = logDNACpuLLno ~ ThreeBarbLiveGravidDW + as.factor(Year) + 
+                         TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythobmred16)
+#overfit, remove temperature
+redlmbythobm16<-lm(logDNACpuLLno ~ Barb+ThreeBarbLiveGravidDW+
+                     TwoBarbDeadGravidDW+as.factor(Year)+pH+DOmgL,
+                   data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythobm16, direction="both")
+#AIC -78
+bestlmbythobmred16<-lm(formula = logDNACpuLLno ~ Barb + ThreeBarbLiveGravidDW + pH, 
+                       data = bytho2qelongnoctlastnar)
+summary(bestlmbythobmred16)
+#overfit, remove pH
+redlmbythobm16<-lm(logDNACpuLLno ~ Barb+ThreeBarbLiveGravidDW+
+                     TwoBarbDeadGravidDW+as.factor(Year)+DOmgL,
+                   data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythobm16, direction="both")
+#AIC -78
+bestlmbythobmred16<-lm(formula = logDNACpuLLno ~ ThreeBarbLiveGravidDW + as.factor(Year), 
+                       data = bytho2qelongnoctlastnar)
+summary(bestlmbythobmred16)
+#ThreeBarbLiveGravidDW significantly positive, but very small
+
+
+
+#Try again with pooled demographic variables ()
+fulllmbythocountenvgb16<-lm(logDNACpuLLno ~ Barb*NoIntro+TotalGravidLive+TotalGravidDead+TotalBarrenLive+
+                                             OneBarbDeadBarren+TotalSpinesKinks+TotalMoultsRound+
+                                             as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(fulllmbythocountenvgb16, direction="both")
+#AIC=-89
+
+bestlmbythocountenvgb16<-lm(formula = logDNACpuLLno ~ Barb + NoIntro + TotalGravidLive + 
+                              TotalGravidDead + TotalBarrenLive + as.factor(Year) + TempC, 
+                            data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenvgb16)
+#extremely overfit - , take out number introduced
+redlmbythocountenvgb16<-lm(logDNACpuLLno ~ Barb+TotalGravidLive+TotalGravidDead+TotalBarrenLive+
+                              OneBarbDeadBarren+TotalSpinesKinks+TotalMoultsRound+
+                              as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythocountenvgb16, direction="both")
+#AIC=-89
+
+bestlmbythocountenvgbred16<-lm(formula = logDNACpuLLno ~ Barb + TotalGravidLive + TotalGravidDead + 
+                              TotalBarrenLive + as.factor(Year) + TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenvgbred16)
+#overfit, remove totalbarrenlive
+redlmbythocountenvgb16<-lm(logDNACpuLLno ~ Barb+TotalGravidLive+TotalGravidDead+
+                             OneBarbDeadBarren+TotalSpinesKinks+TotalMoultsRound+
+                             as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythocountenvgb16, direction="both")
+#AIC=-85
+
+bestlmbythocountenvgbred16<-lm(formula = logDNACpuLLno ~ Barb + TotalGravidLive + TotalGravidDead + 
+                                 TotalSpinesKinks + as.factor(Year) + TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenvgbred16)
+#overfit, remove TotalSpinesKinks
+redlmbythocountenvgb16<-lm(logDNACpuLLno ~ Barb+TotalGravidLive+TotalGravidDead+
+                             OneBarbDeadBarren+TotalMoultsRound+
+                             as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythocountenvgb16, direction="both")
+#AIC=-85
+
+bestlmbythocountenvgbred16<-lm(formula = logDNACpuLLno ~ Barb + TotalGravidLive + TotalGravidDead + 
+                                 as.factor(Year) + TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenvgbred16)
+#overfit, remove barb
+redlmbythocountenvgb16<-lm(logDNACpuLLno ~ TotalGravidLive+TotalGravidDead+
+                             OneBarbDeadBarren+TotalMoultsRound+
+                             as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythocountenvgb16, direction="both")
+#AIC=-85
+
+bestlmbythocountenvgbred16<-lm(formula = logDNACpuLLno ~ TotalGravidLive + TotalGravidDead + 
+                                 as.factor(Year) + TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenvgbred16)
+#overfit, remove totalgraviddead
+redlmbythocountenvgb16<-lm(logDNACpuLLno ~ TotalGravidLive+OneBarbDeadBarren+TotalMoultsRound+
+                             as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythocountenvgb16, direction="both")
+#AIC=-78
+bestlmbythocountenvgbred16<-lm(formula = logDNACpuLLno ~ TotalGravidLive + TotalMoultsRound + 
+                                 as.factor(Year) + TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenvgbred16)
+#overfit, remove totalmoultsround
+redlmbythocountenvgb16<-lm(logDNACpuLLno ~ TotalGravidLive+OneBarbDeadBarren+
+                             as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythocountenvgb16, direction="both")
+#AIC=-78
+bestlmbythocountenvgbred16<-lm(formula = logDNACpuLLno ~ TotalGravidLive + as.factor(Year) + 
+                                 TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenvgbred16)
+#overfit, remove temp
+redlmbythocountenvgb16<-lm(logDNACpuLLno ~ TotalGravidLive+OneBarbDeadBarren+
+                             as.factor(Year)+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythocountenvgb16, direction="both")
+#AIC=-76
+bestlmbythocountenvgbred16<-lm(formula = logDNACpuLLno ~ TotalGravidLive + as.factor(Year), 
+                               data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenvgbred16)
+#TotalGravidLive significant
+
+
+#Pooled demographic variables and biomass
+fulllmbythobmenvgb16<-lm(logDNACpuLLno ~ Barb*NoIntro+GravidLiveBiomass+GravidDeadBiomass+BarrenLiveBiomass+
+                                          OneBarbDeadDWBarren+TotalMoultsRound+as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(fulllmbythobmenvgb16, direction="both")
+#AIC=-93
+bestlmbythobmenvgb16<-lm(formula = logDNACpuLLno ~ Barb + NoIntro + GravidLiveBiomass + 
+                           GravidDeadBiomass + BarrenLiveBiomass + as.factor(Year) + 
+                           TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythobmenvgb16)
+#overfit, take out barb
+redlmbythobmenvgb16<-lm(logDNACpuLLno ~ NoIntro+GravidLiveBiomass+GravidDeadBiomass+BarrenLiveBiomass+
+                           OneBarbDeadDWBarren+TotalMoultsRound+as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythobmenvgb16, direction="both")
+#AIC=-92
+bestlmbythobmenvgbred16<-lm(formula = logDNACpuLLno ~ NoIntro + GravidLiveBiomass + GravidDeadBiomass + 
+                              BarrenLiveBiomass + as.factor(Year) + TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythobmenvgbred16)
+#overfit, take out introduced
+redlmbythobmenvgb16<-lm(logDNACpuLLno ~ GravidLiveBiomass+GravidDeadBiomass+BarrenLiveBiomass+
+                          OneBarbDeadDWBarren+TotalMoultsRound+as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythobmenvgb16, direction="both")
+#AIC=-89
+bestlmbythobmenvgbred16<-lm(formula = logDNACpuLLno ~ GravidLiveBiomass + GravidDeadBiomass + 
+                              BarrenLiveBiomass + as.factor(Year) + TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythobmenvgbred16)
+#overfit, take out BarrenLiveBiomass
+redlmbythobmenvgb16<-lm(logDNACpuLLno ~ GravidLiveBiomass+GravidDeadBiomass+
+                          OneBarbDeadDWBarren+TotalMoultsRound+as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythobmenvgb16, direction="both")
+#AIC=-86
+bestlmbythobmenvgbred16<-lm(formula = logDNACpuLLno ~ GravidLiveBiomass + GravidDeadBiomass + 
+                              as.factor(Year) + TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythobmenvgbred16)
+#overfit, take out graviddeadbiomass
+redlmbythobmenvgb16<-lm(logDNACpuLLno ~ GravidLiveBiomass+
+                          OneBarbDeadDWBarren+TotalMoultsRound+as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythobmenvgb16, direction="both")
+#AIC=-82
+bestlmbythobmenvgbred16<-lm(formula = logDNACpuLLno ~ GravidLiveBiomass + TotalMoultsRound + 
+                              as.factor(Year) + TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythobmenvgbred16)
+#overfit, take out TotalMoultsRound
+redlmbythobmenvgb16<-lm(logDNACpuLLno ~ GravidLiveBiomass+
+                          OneBarbDeadDWBarren+as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythobmenvgb16, direction="both")
+#AIC=-80
+bestlmbythobmenvgbred16<-lm(formula = logDNACpuLLno ~ GravidLiveBiomass + as.factor(Year) + 
+                              TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythobmenvgbred16)
+#overfit, take out temp
+redlmbythobmenvgb16<-lm(logDNACpuLLno ~ GravidLiveBiomass+
+                          OneBarbDeadDWBarren+as.factor(Year)+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythobmenvgb16, direction="both")
+#AIC=-77
+bestlmbythobmenvgbred16<-lm(formula = logDNACpuLLno ~ GravidLiveBiomass + as.factor(Year), 
+                            data = bytho2qelongnoctlastnar)
+summary(bestlmbythobmenvgbred16)
+#GravidLiveBiomass significatn
+
+#Try with pooled counts
+fulllmbythocountenvld16<-lm(logDNACpuLLno ~ Barb*NoIntro+TotalLive+TotalDead+TotalSpinesKinks+TotalMoultsRound+as.factor(Year)+TempC+
+                            DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(fulllmbythocountenvld16, direction="both")
+#AIC=-108
+bestlmbythocountenvld16<-lm(formula = logDNACpuLLno ~ Barb + NoIntro + TotalLive + TotalDead + 
+                              as.factor(Year) + TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenvld16)
+#extremely overfit - take out number introduced
+redlmbythocountenvld16<-lm(logDNACpuLLno ~ Barb+TotalLive+TotalDead+TotalSpinesKinks+TotalMoultsRound+as.factor(Year)+TempC+
+                              DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythocountenvld16, direction="both")
+#AIC=-83
+bestlmbythocountenvldred16<-lm(formula = logDNACpuLLno ~ Barb + TotalLive + TotalDead + as.factor(Year) + 
+                              TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenvldred16)
+#overfit, take out barb
+redlmbythocountenvld16<-lm(logDNACpuLLno ~ TotalLive+TotalDead+TotalSpinesKinks+TotalMoultsRound+as.factor(Year)+TempC+
+                              DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythocountenvld16, direction="both")
+#AIC=-82
+bestlmbythocountenvldred16<-lm(formula = logDNACpuLLno ~ TotalLive + TotalDead + as.factor(Year) + 
+                                 TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenvldred16)
+#overfit, take out total dead
+redlmbythocountenvld16<-lm(logDNACpuLLno ~ TotalLive+TotalSpinesKinks+TotalMoultsRound+as.factor(Year)+TempC+
+                             DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythocountenvld16, direction="both")
+#AIC=-80
+bestlmbythocountenvldred16<-lm(formula = logDNACpuLLno ~ TotalLive + as.factor(Year) + TempC, 
+                               data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenvldred16)
+#overfit, take out year
+redlmbythocountenvld16<-lm(logDNACpuLLno ~ TotalLive+TotalSpinesKinks+TotalMoultsRound+TempC+
+                             DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythocountenvld16, direction="both")
+#AIC=-74
+bestlmbythocountenvldred16<-lm(formula = logDNACpuLLno ~ TotalLive, data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenvldred16)
+#TotalLivesignificant
+
+
+
+#now with biomass
+fulllmbythobmenvld16<-lm(logDNACpuLLno ~ Barb*StartLivingBiomass+EndLivingBiomass+EndDeadBiomass+as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(fulllmbythobmenvld16, direction="both")
+#AIC=-87
+bestlmbythobmenvld16<-lm(formula = logDNACpuLLno ~ Barb + EndLivingBiomass + EndDeadBiomass + 
+                         as.factor(Year) + TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythobmenvld16)
+#overfit, take out barb
+redlmbythobmenvld16<-lm(logDNACpuLLno ~ StartLivingBiomass+EndLivingBiomass+EndDeadBiomass+as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythobmenvld16, direction="both")
+#AIC=-86
+bestlmbythobmenvldred16<-lm(formula = logDNACpuLLno ~ EndLivingBiomass + EndDeadBiomass + 
+                              as.factor(Year) + TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythobmenvldred16)
+#overfit, take out eaddeadbiomass
+redlmbythobmenvld16<-lm(logDNACpuLLno ~ StartLivingBiomass+EndLivingBiomass+as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythobmenvld16, direction="both")
+#AIC=-81
+bestlmbythobmenvldred16<-lm(formula = logDNACpuLLno ~ EndLivingBiomass + as.factor(Year) + 
+                              TempC, data = bytho2qelongnoctlastnar)
+summary(bestlmbythobmenvldred16)
+#overfit, take out year
+redlmbythobmenvld16<-lm(logDNACpuLLno ~ StartLivingBiomass+EndLivingBiomass+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythobmenvld16, direction="both")
+#AIC=-76
+bestlmbythobmenvldred16<-lm(formula = logDNACpuLLno ~ EndLivingBiomass, data = bytho2qelongnoctlastnar)
+summary(bestlmbythobmenvldred16)
+#end living biomass significant but very small
+
+###summary
+#count full demographic splits - 3 barb live gravid
+#biomass full demographic splits - 3 Barb Live Gravid
+#count total gravid splits - total gravid live
+#biomass total gravid splits - gravidlive significant
+#count combined - total live significant
+#biomass combined - end living biomass significant
+
+#visualize
+
+ggplot(subset(bytho2qelongnoct, Day==16), aes(x=ThreeBarbLiveGravid, y=DNACpuLLno)) + 
+  geom_point() +
+  geom_smooth(method=lm, se=F, color="black")+
+  scale_y_continuous(trans="log10")+
+  labs(x ="End 3-Barb Live Gravid", 
+       y = "End DNA Copies per µL per L")+
+  theme(panel.background = element_rect(fill = "white", colour = "grey50"),
+        axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
+        axis.text.x=element_text(size=14),axis.text.y = element_text(size=14),
+        legend.title=element_text(size=20),legend.text = element_text(size=16),
+        strip.text.x = element_text(size = 20),strip.text.y=element_text(size = 20))
+
+ggplot(subset(bytho2qelongnoct, Day==16), aes(x=TotalGravidLive, y=DNACpuLLno)) + 
+  geom_point() +
+  scale_y_continuous(trans="log10")+
+  labs(x ="End Live Gravid", 
+       y = "End DNA Copies per µL per L")+
+  theme(panel.background = element_rect(fill = "white", colour = "grey50"),
+        axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
+        axis.text.x=element_text(size=14),axis.text.y = element_text(size=14),
+        legend.title=element_text(size=20),legend.text = element_text(size=16),
+        strip.text.x = element_text(size = 20),strip.text.y=element_text(size = 20))
+
+ggplot(subset(bytho2qelongnoct, Day==16), aes(x=TotalLive, y=DNACpuLLno)) + 
+  geom_point() +
+  scale_y_continuous(trans="log10")+
+  labs(x ="End Live", 
+       y = "End DNA Copies per µL per L")+
+  theme(panel.background = element_rect(fill = "white", colour = "grey50"),
+        axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
+        axis.text.x=element_text(size=14),axis.text.y = element_text(size=14),
+        legend.title=element_text(size=20),legend.text = element_text(size=16),
+        strip.text.x = element_text(size = 20),strip.text.y=element_text(size = 20))
+
+#Do again with detection as response
+fulllmbythocountenv16bi<-lm(DNADetect ~ Barb*NoIntro+OneBarbLiveBarren+TwoBarbLiveGravid+
+                            ThreeBarbLiveGravid+OneBarbDeadBarren+TwoBarbDeadGravid+
+                            ThreeBarbDeadGravid+OneBarbSpine+TwoBarbSpine+ThreeBarbSpine+kink+TotalMoultsRound+
+                            as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(fulllmbythocountenv16bi, direction="both")
+#AIC -47
+bestlmbythocountenv16bi<-lm(formula = DNADetect ~ TwoBarbLiveGravid + ThreeBarbLiveGravid + 
+                              TwoBarbDeadGravid + ThreeBarbDeadGravid + OneBarbSpine + 
+                              TwoBarbSpine + ThreeBarbSpine + kink + TotalMoultsRound + 
+                              as.factor(Year), data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenv16bi)
+#definitely overfit. Try again combinig spines and kinks
+redlmbythocountenv16bi<-lm(DNADetect ~ Barb*NoIntro+OneBarbLiveBarren+TwoBarbLiveGravid+
+                              ThreeBarbLiveGravid+OneBarbDeadBarren+TwoBarbDeadGravid+
+                              ThreeBarbDeadGravid+TotalSpinesKinks+TotalMoultsRound+
+                              as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythocountenv16bi, direction="both")
+#AIC -46
+bestlmbythocountenv16bired<-lm(formula = DNADetect ~ Barb + TwoBarbLiveGravid + ThreeBarbDeadGravid + 
+                                 TotalSpinesKinks + TotalMoultsRound + as.factor(Year) + TempC, 
+                               data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenv16bired)
+#overfit, remove TwoBarbLiveGravid
+redlmbythocountenv16bi<-lm(DNADetect ~ Barb*NoIntro+OneBarbLiveBarren+
+                             ThreeBarbLiveGravid+OneBarbDeadBarren+TwoBarbDeadGravid+
+                             ThreeBarbDeadGravid+TotalSpinesKinks+TotalMoultsRound+
+                             as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythocountenv16bi, direction="both")
+#AIC -46
+bestlmbythocountenv16bired<-lm(formula = DNADetect ~ Barb + ThreeBarbDeadGravid + TotalSpinesKinks + 
+                                 TotalMoultsRound, data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenv16bired)
+#overfit, remove totalspineskinsk
+redlmbythocountenv16bi<-lm(DNADetect ~ Barb*NoIntro+OneBarbLiveBarren+
+                             ThreeBarbLiveGravid+OneBarbDeadBarren+TwoBarbDeadGravid+
+                             ThreeBarbDeadGravid+TotalMoultsRound+
+                             as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythocountenv16bi, direction="both")
+#AIC -44
+bestlmbythocountenv16bired<-lm(formula = DNADetect ~ Barb + NoIntro + ThreeBarbDeadGravid + 
+                                 TotalMoultsRound, data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenv16bired)
+#overfit, remove number introduced
+redlmbythocountenv16bi<-lm(DNADetect ~ Barb+OneBarbLiveBarren+
+                             ThreeBarbLiveGravid+OneBarbDeadBarren+TwoBarbDeadGravid+
+                             ThreeBarbDeadGravid+TotalMoultsRound+
+                             as.factor(Year)+TempC+DOmgL,data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythocountenv16bi, direction="both")
+#AIC -42
+bestlmbythocountenv16bired<-lm(formula = DNADetect ~ Barb + ThreeBarbDeadGravid + TotalMoultsRound, 
+                               data = bytho2qelongnoctlastnar)
+summary(bestlmbythocountenv16bired)
+#nothing significant
+
+
+#Now try DW
+fulllmbythobm16bi<-lm(DNADetect ~ Barb*StartLivingBiomass+OneBarbLiveBarrenDW+TwoBarbLiveGravidDW+
+                      ThreeBarbLiveGravidDW+OneBarbDeadDWBarren+
+                      TwoBarbDeadGravidDW+ThreeBarbDeadGravidDW+OneBarbSpineDW+TwoBarbSpineDW+
+                      ThreeBarbSpineDW+kinkDW+TotalMoultsRound+as.factor(Year)+TempC+pH+DOmgL,
+                    data = bytho2qelongnoctlastnar)
+stepAIC(fulllmbythobm16bi, direction="both")
+#AIC -47
+bestlmbythobm16bi<-lm(formula = DNADetect ~ TwoBarbLiveGravidDW + ThreeBarbLiveGravidDW + 
+                        TwoBarbDeadGravidDW + ThreeBarbDeadGravidDW + OneBarbSpineDW + 
+                        TwoBarbSpineDW + ThreeBarbSpineDW + kinkDW + TotalMoultsRound + 
+                        as.factor(Year), data = bytho2qelongnoctlastnar)
+summary(bestlmbythobm16bi)
+#overfit, take olut spine and kink deadweights
+redlmbythobm16bi<-lm(DNADetect ~ Barb*StartLivingBiomass+OneBarbLiveBarrenDW+TwoBarbLiveGravidDW+
+                        ThreeBarbLiveGravidDW+OneBarbDeadDWBarren+
+                        TwoBarbDeadGravidDW+ThreeBarbDeadGravidDW+TotalMoultsRound+as.factor(Year)+TempC+pH+DOmgL,
+                      data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythobm16bi, direction="both")
+#AIC -45
+bestlmbythobm16bired<-lm(formula = DNADetect ~ Barb + StartLivingBiomass + ThreeBarbLiveGravidDW + 
+                           ThreeBarbDeadGravidDW + TotalMoultsRound + pH, data = bytho2qelongnoctlastnar)
+summary(bestlmbythobm16bired)
+#overfit, remove startlivingbiomass
+redlmbythobm16bi<-lm(DNADetect ~ Barb+OneBarbLiveBarrenDW+TwoBarbLiveGravidDW+
+                       ThreeBarbLiveGravidDW+OneBarbDeadDWBarren+
+                       TwoBarbDeadGravidDW+ThreeBarbDeadGravidDW+TotalMoultsRound+as.factor(Year)+TempC+pH+DOmgL,
+                     data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythobm16bi, direction="both")
+#AIC -43
+bestlmbythobm16bired<-lm(formula = DNADetect ~ Barb + ThreeBarbLiveGravidDW + ThreeBarbDeadGravidDW + 
+                           TotalMoultsRound + TempC + pH, data = bytho2qelongnoctlastnar)
+summary(bestlmbythobm16bired)
+#overfit, remove 3barbdeadgraviddw
+redlmbythobm16bi<-lm(DNADetect ~ Barb+OneBarbLiveBarrenDW+TwoBarbLiveGravidDW+
+                       ThreeBarbLiveGravidDW+OneBarbDeadDWBarren+
+                       TwoBarbDeadGravidDW+TotalMoultsRound+as.factor(Year)+TempC+pH+DOmgL,
+                     data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythobm16bi, direction="both")
+#AIC -45
+bestlmbythobm16bired<-lm(formula = DNADetect ~ Barb + TwoBarbLiveGravidDW + OneBarbDeadDWBarren + 
+                           TempC + pH, data = bytho2qelongnoctlastnar)
+summary(bestlmbythobm16bired)
+#overfit, remove twobarblivegraviddw
+redlmbythobm16bi<-lm(DNADetect ~ Barb+OneBarbLiveBarrenDW+ThreeBarbLiveGravidDW+OneBarbDeadDWBarren+
+                       TwoBarbDeadGravidDW+TotalMoultsRound+as.factor(Year)+TempC+pH+DOmgL,
+                     data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythobm16bi, direction="both")
+#AIC -43
+bestlmbythobm16bired<-lm(formula = DNADetect ~ Barb + ThreeBarbLiveGravidDW + OneBarbDeadDWBarren + 
+                           TotalMoultsRound + pH, data = bytho2qelongnoctlastnar)
+summary(bestlmbythobm16bired)
+#overfit, remove onebarbdeaddwbarren
+redlmbythobm16bi<-lm(DNADetect ~ Barb+OneBarbLiveBarrenDW+ThreeBarbLiveGravidDW+
+                       TwoBarbDeadGravidDW+TotalMoultsRound+as.factor(Year)+TempC+pH+DOmgL,
+                     data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythobm16bi, direction="both")
+#AIC -42
+bestlmbythobm16bired<-lm(formula = DNADetect ~ Barb + ThreeBarbLiveGravidDW + TotalMoultsRound + 
+                           pH, data = bytho2qelongnoctlastnar)
+summary(bestlmbythobm16bired)
+#overfit, remove threebarblivegraviddw
+redlmbythobm16bi<-lm(DNADetect ~ Barb+OneBarbLiveBarrenDW+
+                       TwoBarbDeadGravidDW+TotalMoultsRound+as.factor(Year)+TempC+pH+DOmgL,
+                     data = bytho2qelongnoctlastnar)
+stepAIC(redlmbythobm16bi, direction="both")
+#AIC -43
+bestlmbythobm16bired<-lm(formula = DNADetect ~ Barb + pH, data = bytho2qelongnoctlastnar)
+summary(bestlmbythobm16bired)
+#nothing significant
+
+
+
+#####################
+#summary of results
+#count demographics - nothing significant
+
 
