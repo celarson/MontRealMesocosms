@@ -8,6 +8,8 @@ library(plyr)
 library(lme4)
 library(sjPlot)
 library(MASS)
+library(dplyr)
+library(tidyr)
 
 ######################
 #Color vectors
@@ -37,12 +39,12 @@ bytho2122$IMOTotal[bytho2122$TotalBythoIndiv<1] <- "Zero"
 
 #Change order of levels
 bytho2122$BarbNoIntro<- factor(bytho2122$BarbNoIntro, levels = c("NA 0", "2barb 1", "3barb 1", "2barb 5", "3barb 5", "3barb 10"))
-bytho2122$BarbNoIntro<-revalue(bytho2122$BarbNoIntro, c("NA 0"="None", "2barb 1"="1, 2-barb", "3barb 1"="1, 3-barb",
-                                                        "2barb 5"="5, 2-barbs", "3barb 5"="5, 3-barbs", 
-                                                        "3barb 10"="10, 3-barbs"))
+bytho2122$BarbNoIntro<-revalue(bytho2122$BarbNoIntro, c("NA 0"="None", "2barb 1"="1, 2nd instar", "3barb 1"="1, 3rd instar",
+                                                        "2barb 5"="5, 2nd instars", "3barb 5"="5, 3rd instars", 
+                                                        "3barb 10"="10, 3rd instars"))
 #create ordered barbnointro variable
-bytho2122$BarbNoIntroOrdered<-as.numeric(revalue(bytho2122$BarbNoIntro, c("None"=0, "1, 2-barb"=1, "1, 3-barb"=2, "5, 2-barbs"=3,
-                                                               "5, 3-barbs"=4,"10, 3-barbs"=5)))
+bytho2122$BarbNoIntroOrdered<-as.numeric(revalue(bytho2122$BarbNoIntro, c("None"=0, "1, 2nd instar"=1, "1, 3rd instar"=2, "5, 2nd instars"=3,
+                                                               "5, 3rd instars"=4,"10, 3rd instars"=5)))
 #Create "tank and year" variable
 bytho2122$tankyear<-paste(bytho2122$Tankno,bytho2122$Year)
 #qPCR
@@ -137,7 +139,7 @@ ggplot(bytho2qelongnoct, aes(x=Day, y=DNACopiesperuLL, color=as.factor(Tankno)))
   geom_jitter(size=2, width=.1, height=.1) +
   scale_y_continuous(trans="log10")+
   labs(x ="Day", 
-       y = "DNA Copies/uL/L", color="Tank")+
+       y = "DNA Copies per µL per L", color="Tank")+
   theme(panel.background = element_rect(fill = "white", colour = "grey50"),
         axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
         axis.text.x=element_text(size=14),axis.text.y = element_text(size=14),
@@ -156,6 +158,19 @@ ggplot(bytho2qelongnoctconv, aes(x=Day, y=DNACopiesperuLLconv)) +
         legend.title=element_text(size=20),legend.text = element_text(size=16),
         strip.text.x = element_text(size = 20),strip.text.y=element_text(size = 20))+
   facet_grid(Year~BarbNoIntro)
+
+ggplot(bytho2qelongnoct2, aes(x=Day, y=logDNACpuLLno, group=Day)) + 
+  geom_boxplot() +
+  labs(x ="Day", 
+       y = "log(DNA Copies per µL per L)")+
+  theme(panel.background = element_rect(fill = "white", colour = "grey50"),
+        axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
+        axis.text.x=element_text(size=14),axis.text.y = element_text(size=14),
+        legend.title=element_text(size=20),legend.text = element_text(size=16),
+        strip.text.x = element_text(size = 20),strip.text.y=element_text(size = 20))+
+  facet_grid(Year~BarbNoIntro)
+
+
 
 #don't use converted, because doesn't make any difference, and just adds another method to explain.
 #only two hits - could be because of swf in ambient water or contamination. ignore for now
@@ -283,6 +298,8 @@ ggplot(bythoenv, aes(x=Day, y=pH)) +
 #range 7.5 to 8.5 - not a biologically relevant range, on the other hand barnes found significant change within this range so keep
 cor.test(bytho2qelongnoct$pH,bytho2qelongnoct$Day)
 #pH and day highly correlated, so use Day on analyses
+source("group_by_summary_stats.R")
+group_by_summary_stats(bytho2qelongnoct, pH, Day, Year)
 
 #TurbidityFNU
 shapiro.test(bytho2qelongnoct$TurbidityFNU)
@@ -723,6 +740,7 @@ ggplot(bytho2qelongnoct, aes(x=TotalGravidLive, y=DNACpuLLno)) +
         strip.text.x = element_text(size = 20),strip.text.y=element_text(size = 20))+
   facet_grid(~Day)
 
+bytho2qelongnoct$Barb<-revalue(bytho2qelongnoct$Barb, c("2barb"="2nd instar", "3barb"="3rd instar"))
 ggplot(bytho2qelongnoct, aes(x=Barb, y=DNACpuLLno)) + 
   geom_boxplot() +
   scale_y_continuous(trans="log10")+
@@ -1506,7 +1524,7 @@ ggplot(subset(bytho2qelongnoct, Day==16), aes(x=ThreeBarbLiveGravid, y=DNACpuLLn
   geom_point() +
   geom_smooth(method=lm, se=F, color="black")+
   scale_y_continuous(trans="log10")+
-  labs(x ="End 3-Barb Live Gravid", 
+  labs(x ="End Living, Gravid 3rd Instars", 
        y = "End DNA Copies per µL per L")+
   theme(panel.background = element_rect(fill = "white", colour = "grey50"),
         axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
