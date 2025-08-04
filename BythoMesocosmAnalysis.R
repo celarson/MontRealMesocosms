@@ -119,6 +119,15 @@ day1phys<-merge(bythoday1st,bytho2122)
 day1physnocont<-subset(day1phys,Barb!="NA")
 #merge with environmental
 Day1physenv<-merge(day1phys,bythoenvwide)
+#subset into 2021 and 2022
+day1phys21<-subset(day1phys, Year==2021)
+day1phys22<-subset(day1phys, Year==2022)
+
+day1physnocont21<-subset(day1phys,Barb!="NA" & Year==2021)
+day1physnocont22<-subset(day1phys,Barb!="NA" & Year==2021)
+
+Day1physenv21<-subset(Day1physenv, Year==2021)
+Day1physenv22<-subset(Day1physenv, Year==2022)
 
 #####################################################
 #examine negative control tanks
@@ -418,6 +427,76 @@ summary(lm1stdetectbestut)
 #firstday=62.388+-11.397pH+3.62DO
 #pH std error 4.57 t value -2.50 p=0.02
 #DO std error 1.335 t value 2.708 p=0.01
+
+#Run for each year separately, since different design: 2021
+day1physnocont21$FirstDay0<-day1physnocont21$FirstDay
+day1physnocont21$FirstDay0[is.na(day1physnocont21$FirstDay0)] <- 0
+
+#run model without environmental parameters
+lm1stdetectdemfull21<- lm(log10(FirstDay) ~ NoIntro*Barb, data = day1phys21)
+stepAIC(lm1stdetectdemfull21, direction="both")
+#nothing significant
+
+#Run model again with environmental parameters as well as year
+lm1stdetectenvfull21<- lm(log10(FirstDay) ~ NoIntro*Barb+TempC.2+TotalChlorugL.2+pH.2+DOmgL.2,
+                        data = Day1physenv21)
+stepAIC(lm1stdetectenvfull21, direction="both")
+#best model has chlorophyl, pH and, DO
+lm1stdetectbest21<-lm(formula = log10(FirstDay) ~ NoIntro + TotalChlorugL.2 + pH.2 + 
+                        DOmgL.2, data = Day1physenv21)
+summary(lm1stdetectbest21)
+#overfit, so delete chlorophyl
+lm1stdetectenvfull21red<- lm(log10(FirstDay) ~ NoIntro*Barb+TempC.2+pH.2+DOmgL.2,
+                          data = Day1physenv21)
+stepAIC(lm1stdetectenvfull21red, direction="both")
+lm1stdetectbest21red<-lm(formula = log10(FirstDay) ~ Barb + TempC.2 + pH.2, data = Day1physenv21)
+summary(lm1stdetectbest21red)
+#overfit, so delete barb
+lm1stdetectenvfull21red<- lm(log10(FirstDay) ~ NoIntro+TempC.2+pH.2+DOmgL.2,
+                             data = Day1physenv21)
+stepAIC(lm1stdetectenvfull21red, direction="both")
+lm1stdetectbest21red<-lm(formula = log10(FirstDay) ~ NoIntro + TempC.2 + pH.2, data = Day1physenv21)
+summary(lm1stdetectbest21red)
+#overfit, so delete no intro
+lm1stdetectenvfull21red<- lm(log10(FirstDay) ~ TempC.2+pH.2+DOmgL.2,
+                             data = Day1physenv21)
+stepAIC(lm1stdetectenvfull21red, direction="both")
+lm1stdetectbest21red<-lm(formula = log10(FirstDay) ~ pH.2, data = Day1physenv21)
+summary(lm1stdetectbest21red)
+#pH significant
+#p=0.05. -0.78 estimate, standard error 0.35, t value -2.18
+#for interpretation, run with linear response
+lm1stdetectbest21redlin<-lm(formula = FirstDay ~ pH.2, data = Day1physenv21)
+summary(lm1stdetectbest21redlin)
+
+
+#Try again with 2022
+#Run for each year separately, since different design: 2022
+day1physnocont22$FirstDay0<-day1physnocont22$FirstDay
+day1physnocont22$FirstDay0[is.na(day1physnocont22$FirstDay0)] <- 0
+
+#run model without environmental parameters
+lm1stdetectdemfull22<- lm(log10(FirstDay) ~ NoIntro*Barb, data = day1phys22)
+stepAIC(lm1stdetectdemfull22, direction="both")
+#nothing significant
+
+#Run model again with environmental parameters as well as year
+lm1stdetectenvfull22<- lm(log10(FirstDay) ~ NoIntro*Barb+TempC.2+TotalChlorugL.2+pH.2+DOmgL.2,
+                          data = Day1physenv22)
+stepAIC(lm1stdetectenvfull22, direction="both")
+lm1stdetectbest22<-lm(formula = log10(FirstDay) ~ NoIntro + Barb + TempC.2 + TotalChlorugL.2 + 
+                        pH.2, data = Day1physenv22)
+summary(lm1stdetectbest22)
+#overfit, so delete no intro
+lm1stdetectenvfull22red<- lm(log10(FirstDay) ~ Barb+TempC.2+TotalChlorugL.2+pH.2+DOmgL.2,
+                          data = Day1physenv22)
+stepAIC(lm1stdetectenvfull22red, direction="both")
+lm1stdetectbest22red<-lm(formula = log10(FirstDay) ~ pH.2 + DOmgL.2, data = Day1physenv22)
+summary(lm1stdetectbest22red)
+#overfit, so delete pH
+lm1stdetectbest22red<-lm(formula = log10(FirstDay) ~ DOmgL.2, data = Day1physenv22)
+summary(lm1stdetectbest22red)
+#nothing significant
 
 #Test effect of day, demographics, environmental variables on DNA concentration
 
