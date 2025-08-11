@@ -10,10 +10,15 @@ library(sjPlot)
 library(MASS)
 library(dplyr)
 library(tidyr)
+library(viridis)
+library(RColorBrewer)
 
 ######################
 #Color vectors
-yearcolvec<-c("#1b9e77","#d95f02")
+yearcolvec<-c("deepskyblue4","#d95f02")
+tankcolvec<-c("#E41A1C","#A24057","#606692","#3A85A8","#42977E", "#4AAA54", "#629363", "#7E6E85", "#9C509B",
+              "#C4625D", "#EB751F", "#FF9709", "#FFC81D", "black", "#E1C62F", "#BF862B", "grey60", "#CC6A6F",
+              "#EB7AA9", "#E086B5", "green", "grey30")
 
 #################################
 #Upload and standardize datasets
@@ -139,7 +144,8 @@ ggplot(bytho2qelongnoct, aes(x=Day, y=DNACopiesperuLL, color=as.factor(Tankno)))
   geom_jitter(size=2, width=.1, height=.1) +
   scale_y_continuous(trans="log10")+
   labs(x ="Day", 
-       y = "DNA Copies per µL per L", color="Tank")+
+       y = "eDNA Copies per µL per L", color="Tank")+
+  scale_color_manual(guide="none", values=tankcolvec)+
   theme(panel.background = element_rect(fill = "white", colour = "grey50"),
         axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
         axis.text.x=element_text(size=14),axis.text.y = element_text(size=14),
@@ -158,19 +164,6 @@ ggplot(bytho2qelongnoctconv, aes(x=Day, y=DNACopiesperuLLconv)) +
         legend.title=element_text(size=20),legend.text = element_text(size=16),
         strip.text.x = element_text(size = 20),strip.text.y=element_text(size = 20))+
   facet_grid(Year~BarbNoIntro)
-
-ggplot(bytho2qelongnoct2, aes(x=Day, y=logDNACpuLLno, group=Day)) + 
-  geom_boxplot() +
-  labs(x ="Day", 
-       y = "log(DNA Copies per µL per L)")+
-  theme(panel.background = element_rect(fill = "white", colour = "grey50"),
-        axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
-        axis.text.x=element_text(size=14),axis.text.y = element_text(size=14),
-        legend.title=element_text(size=20),legend.text = element_text(size=16),
-        strip.text.x = element_text(size = 20),strip.text.y=element_text(size = 20))+
-  facet_grid(Year~BarbNoIntro)
-
-
 
 #don't use converted, because doesn't make any difference, and just adds another method to explain.
 #only two hits - could be because of swf in ambient water or contamination. ignore for now
@@ -415,7 +408,7 @@ ggplot(Day1physenv, aes(x=pH.2, y=(FirstDay-2))) +
   geom_point(aes(color=factor(Year))) +
   geom_smooth(method=lm, se=F, color="black")+
   scale_y_continuous(trans="log10")+
-  labs(x ="pH at Introduction", 
+  labs(x ="pH at Inoculation", 
        y = "Day of First Detection", color="Year")+
   scale_color_manual(values=yearcolvec)+
   theme(panel.background = element_rect(fill = "white", colour = "grey50"),
@@ -744,8 +737,8 @@ bytho2qelongnoct$Barb<-revalue(bytho2qelongnoct$Barb, c("2barb"="2nd instar", "3
 ggplot(bytho2qelongnoct, aes(x=Barb, y=DNACpuLLno)) + 
   geom_boxplot() +
   scale_y_continuous(trans="log10")+
-  labs(x ="Life Stage Introduced", 
-       y = "DNA Copies per µL per L")+
+  labs(x ="Life Stage Inoculated", 
+       y = "eDNA Copies per µL per L")+
   theme(panel.background = element_rect(fill = "white", colour = "grey50"),
         axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
         axis.text.x=element_text(size=14),axis.text.y = element_text(size=14),
@@ -1525,7 +1518,7 @@ ggplot(subset(bytho2qelongnoct, Day==16), aes(x=ThreeBarbLiveGravid, y=DNACpuLLn
   geom_smooth(method=lm, se=F, color="black")+
   scale_y_continuous(trans="log10")+
   labs(x ="End Living, Gravid 3rd Instars", 
-       y = "End DNA Copies per µL per L")+
+       y = "End eDNA Copies per µL per L")+
   theme(panel.background = element_rect(fill = "white", colour = "grey50"),
         axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
         axis.text.x=element_text(size=14),axis.text.y = element_text(size=14),
