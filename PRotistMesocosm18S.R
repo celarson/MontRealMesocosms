@@ -5,6 +5,10 @@ library(vegan)
 library(ggplot2)
 library(tidyverse)
 library(ggpubr)
+library(plyr)
+
+#functions
+se<- function(x) sd(x)/sqrt(length(x))
 
 #Color vectors
 ExpYearcolvec<-c("#1b9e77","#7570b3","#66a61e","#e7298a","#d95f02")
@@ -24,6 +28,23 @@ p18S$'sample-id'<-NULL
 #reverse so columns are samples
 p18St<-data.frame(t(p18S), check.names=F)
 p18St$sample.id<-row.names(p18St)
+
+#Upload family table
+f18S<-read.csv("PM18SUMGC_asv_table_f.csv", header=T, check.names=F)
+names(f18S)
+#format data table so OTU name is row name
+row.names(f18S)<-f18S[,1]
+#Delete OTU id column now that OTU ID is rowname
+f18S$'sample-id'<-NULL
+#reverse so columns are samples
+f18St<-data.frame(t(f18S), check.names=F)
+f18St$sample.id<-row.names(f18St)
+sort(colSums(f18St[,1:167]))
+#d__Eukaryota;p__Diatomea;c__Coscinodiscophytina;o__Coscinodiscophytina;f__Melosirids most common
+summary(f18St$'d__Eukaryota;p__Diatomea;c__Coscinodiscophytina;o__Coscinodiscophytina;f__Melosirids')
+#mean 472 standard error
+se(f18St$'d__Eukaryota;p__Diatomea;c__Coscinodiscophytina;o__Coscinodiscophytina;f__Melosirids')
+#standard error 22
 
 #Upload genus table
 g18S<-read.csv("PM18SUMGC_asv_table_g.csv", header=T, check.names=F)
@@ -117,6 +138,10 @@ s18SInnoc32022 <- s18SInnocExpYear[[5]]
 
 #Merge ASV level
 a18SInnoc<-merge(a18St,Innoculation,by="sample.id")
+#eliminated columns with 0 sum
+a18SInnoc_cleaned<-a18SInnoc[, -which(numcolwise(sum)(a18SInnoc) < 1)]
+#68028 ASVs total in samples
+
 
 #split up by experiment
 a18SInnocExpYear<- split(a18SInnoc, a18SInnoc$ExpYear)
@@ -129,6 +154,7 @@ a18SInnoc32022 <- a18SInnocExpYear[[5]]
 ########################
 #Analysis
 
+#Ranges and correlations
 #look at correlations among env variables
 cor(Innoculation[,c(4,9,14:20)])
 #salinity and conductivity correlated 0.83, just keep salinity
@@ -141,6 +167,119 @@ range(Innoculation$Salinity_PSU)
 range(Innoculation$pH)
 
 range(Innoculation$Turbidity_FNU)
+
+
+#Generate innoculant density eDNA datasets
+
+#look for correlations at the species level to see if they match inoculations
+#use pearson correlation because non-normal
+
+#experiment 1 2021
+correlations18S12021s<-data.frame(cor(s18SInnoc12021[,c(2:575,584,587)],use="pairwise.complete.obs", method="pearson"))
+#d__Eukaryota;p__Chlorophyta;c__Chlorophyceae;o__Chlorophyceae;f__Chlorophyceae;g__Chlorophyceae;s__Haematococcus_lacustris correlates with cells by 0.92 and relative by 0.76
+#rename H. Lacustris
+names(s18SInnoc12021)[names(s18SInnoc12021) == "d__Eukaryota;p__Chlorophyta;c__Chlorophyceae;o__Chlorophyceae;f__Chlorophyceae;g__Chlorophyceae;s__Haematococcus_lacustris"] <- "Hpluvialis"
+cor.test(s18SInnoc12021$observed_treatment_cellperml, s18SInnoc12021$Hpluvialis, method="pearson")
+#t(95)=22.81, p<0.01, r=0.92
+#plot correlation
+ggplot(s18SInnoc12021, aes(x=observed_treatment_cellperml, y=Hpluvialis)) + 
+  geom_point()+
+  stat_cor(method="pearson")+
+  labs(x =expression(paste(italic("H. pluvialis"), " cells per mL")), 
+       y = expression(paste(italic("H. pluvialis"), " relative sequence abundance")))+
+  theme(panel.background = element_rect(fill = "white", colour = "grey50"),
+        axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
+        axis.text.x=element_text(size=16),axis.text.y = element_text(size=16))
+
+#Experiment 1 2022
+correlations18S12022s<-data.frame(cor(s18SInnoc12022[,c(2:575,584,587)],use="pairwise.complete.obs"))
+#d__Eukaryota;p__Ochrophyta;c__Chrysophyceae;o__Synurales;f__Synurales;g__Synura;__ .70 correlation with observed cells and .80 correlation with relative
+#rename Synura
+names(s18SInnoc12022)[names(s18SInnoc12022) == "d__Eukaryota;p__Ochrophyta;c__Chrysophyceae;o__Synurales;f__Synurales;g__Synura;__"] <- "Synura"
+cor.test(s18SInnoc12022$observed_treatment_cellperml, s18SInnoc12022$Synura, method="pearson")
+#t(97)=9.78, p<0.01, r=0.71
+#plot correlation
+ggplot(s18SInnoc12022, aes(x=observed_treatment_cellperml, y=Synura)) + 
+  geom_point()+
+  stat_cor(method="pearson")+
+  labs(x =expression(paste(italic("Chrysosphaerella"), " sp. cells per mL")), 
+       y = expression(paste(italic("Synura"), " sp. relative sequence abundance")))+
+  theme(panel.background = element_rect(fill = "white", colour = "grey50"),
+        axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
+        axis.text.x=element_text(size=16),axis.text.y = element_text(size=16))
+
+#Experiment 2 2021
+correlations18S22021s<-data.frame(cor(s18SInnoc22021[,c(2:575,584,587)],use="pairwise.complete.obs"))
+#d__Eukaryota;p__Ochrophyta;c__Chrysophyceae;o__Synurales;f__Synurales;g__Mallomonas;s__Mallomonas_caudata 0.54 correlation with observed cells and 0.65 with relative
+cor.test(s18SInnoc22021$'d__Eukaryota;p__Ochrophyta;c__Chrysophyceae;o__Synurales;f__Synurales;g__Mallomonas;s__Mallomonas_caudata',s18SInnoc22021$observed_treatment_cellperml)
+#t(95)=6.36, p<0.01, r=0.55
+#See how trachelomonas tracks
+cor.test(s18SInnoc22021$'d__Eukaryota;p__Euglenozoa;c__Euglenida;o__Euglenophyceae;f__Euglenaceae;g__Trachelomonas;s__Trachelomonas_sp.',s18SInnoc22021$observed_treatment_cellperml)
+#0.18, significant
+cor.test(s18SInnoc22021$'d__Eukaryota;p__Euglenozoa;c__Euglenida;o__Euglenophyceae;f__Euglenaceae;g__Trachelomonas;s__Trachelomonas_sp.',s18SInnoc22021$relative_inoculant_density_percent)
+#0.17, not significant
+names(s18SInnoc22021)[names(s18SInnoc22021) == "d__Eukaryota;p__Ochrophyta;c__Chrysophyceae;o__Synurales;f__Synurales;g__Mallomonas;s__Mallomonas_caudata"] <- "Mcaudata"
+#plot top correlation
+ggplot(s18SInnoc22021, aes(x=observed_treatment_cellperml, y=Mcaudata)) + 
+  geom_point()+
+  stat_cor(method="pearson")+
+  labs(x =expression(paste(italic("T. abrupta"), " cells per mL")), 
+       y = expression(paste(italic("M. caudata"), " sp. relative sequence abundance")))+
+  theme(panel.background = element_rect(fill = "white", colour = "grey50"),
+        axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
+        axis.text.x=element_text(size=16),axis.text.y = element_text(size=16))
+
+
+#Experiment 2 2022
+correlations18S22022s<-data.frame(cor(s18SInnoc22022[,c(2:575,584,587)],use="pairwise.complete.obs"))
+#d__Eukaryota;p__Chlorophyta;c__Chlorophyceae;o__Chlorophyceae;f__Chlorophyceae;g__Chlorophyceae;s__Haematococcus_lacustris 0.67 correlation with observed cells and 0.74 correlation with relative
+#rename H. Lacustris
+names(s18SInnoc22022)[names(s18SInnoc22022) == "d__Eukaryota;p__Chlorophyta;c__Chlorophyceae;o__Chlorophyceae;f__Chlorophyceae;g__Chlorophyceae;s__Haematococcus_lacustris"] <- "Hpluvialis"
+cor.test(s18SInnoc22022$observed_treatment_cellperml, s18SInnoc22022$Hpluvialis, method="pearson")
+#t(97)=8.88, p<0.01, r=0.67
+
+#plot correlation
+ggplot(s18SInnoc22022, aes(x=observed_treatment_cellperml, y=Hpluvialis)) + 
+  geom_point()+
+  stat_cor(method="pearson")+
+  labs(x =expression(paste(italic("H. pluvialis"), " cells per mL")), 
+       y = expression(paste(italic("H. pluvialis"), " relative sequence abundance")))+
+  theme(panel.background = element_rect(fill = "white", colour = "grey50"),
+        axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
+        axis.text.x=element_text(size=10),axis.text.y = element_text(size=10))
+
+#Experiment 3 2022
+correlations18S32022s<-data.frame(cor(s18SInnoc32022[,c(2:575,584,587)],use="pairwise.complete.obs"))
+#d__Eukaryota;p__Ochrophyta;c__Chrysophyceae;o__Synurales;f__Synurales;g__Synura;__ 0.94 correlation with observed and 0.95 correlation with relative
+#rename Synura
+names(s18SInnoc32022)[names(s18SInnoc32022) == "d__Eukaryota;p__Ochrophyta;c__Chrysophyceae;o__Synurales;f__Synurales;g__Synura;__"] <- "Synura"
+cor.test(s18SInnoc32022$observed_treatment_cellperml, s18SInnoc32022$Synura, method="pearson")
+#t(97)=28.11, p<0.01, r=0.94
+
+#plot correlation
+ggplot(s18SInnoc32022, aes(x=observed_treatment_cellperml, y=Synura)) + 
+  geom_point()+
+  stat_cor(method="pearson")+
+  labs(x =expression(paste(italic("Chrysosphaerella"), " sp. cells per mL")), 
+       y = expression(paste(italic("Synura"), " sp. relative sequence abundance")))+
+  theme(panel.background = element_rect(fill = "white", colour = "grey50"),
+        axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
+        axis.text.x=element_text(size=10),axis.text.y = element_text(size=10))
+
+
+
+#look for correlations at the genus level to see if they match innoculants
+correlations18S22021g<-data.frame(cor(g18SInnoc22021[,c(2:331,340,343)],use="pairwise.complete.obs"))
+#d__Eukaryota;p__Diatomea;c__Coscinodiscophytina;o__Coscinodiscophytina;f__Melosirids;g__Aulacoseira 0.52 observed 0.49 relative
+
+#look for correlations for ASV level
+correlations18S22021ao<-t(data.frame(cor(a18SInnoc22021[,c(68400,68403)],a18SInnoc22021[,c(2:68391)],use="pairwise.complete.obs")))
+#nothing correlations more strong than 0.5
+
+#Subset excel sheet to create surrogate invaders eDNA spreadsheet for Abby and upload
+SurrogateInvaderseDNAt<-read.csv("SurrogateInvaderseDNAt.csv")
+eDNASurrInnoc<-merge(SurrogateInvaderseDNAt,Innoculation,by="sample.id")
+write.csv(eDNASurrInnoc, 'SurrogateInvaderseDNAmeta.csv')
 
 #################Takes a long time to run #############################
 #UNI-Overall permanova with unifrac distances
@@ -161,102 +300,6 @@ plot(PM_18S_NMDS, type="n")
 with(PM_18S_NMDS, points(PM_18S_NMDS, display="sites", col=ExpYearcolvec[as.factor(uni18SInnoc_env$ExpYear)], pch=19))
 plot(PM_18S_env, col="black", lwd=8, cex=1.5,arr.width=3)
 with(PM_18S_NMDS, legend("topleft", legend=levels(as.factor(uni18SInnoc_env$ExpYear)), bty="n", col=ExpYearcolvec,
-                             pch=19, pt.bg=ExpYearcolvec))
+                         pch=19, pt.bg=ExpYearcolvec))
 ############################################################################
 
-#Generate innoculant density eDNA datasets
-
-#look for correlations at the species level to see if they match innoculants
-
-#experiment 1 2021
-correlations18S12021s<-data.frame(cor(s18SInnoc12021[,c(2:575,584,587)],use="pairwise.complete.obs"))
-#d__Eukaryota;p__Chlorophyta;c__Chlorophyceae;o__Chlorophyceae;f__Chlorophyceae;g__Chlorophyceae;s__Haematococcus_lacustris correlates with cells by 0.91 and relative by 0.76
-#rename H. Lacustris
-names(s18SInnoc12021)[names(s18SInnoc12021) == "d__Eukaryota;p__Chlorophyta;c__Chlorophyceae;o__Chlorophyceae;f__Chlorophyceae;g__Chlorophyceae;s__Haematococcus_lacustris"] <- "Hpluvialis"
-
-#plot correlation
-ggplot(s18SInnoc12021, aes(x=observed_treatment_cellperml, y=Hpluvialis)) + 
-  geom_point()+
-  stat_cor(method="pearson")+
-  labs(x ="H. pluvialis observed cells", 
-       y = "H. pluvialis relative sequence abundance")+
-  theme(panel.background = element_rect(fill = "white", colour = "grey50"),
-        axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
-        axis.text.x=element_text(size=10),axis.text.y = element_text(size=10),
-        legend.title=element_text(size=24),legend.text = element_text(size=14),
-        legend.position="bottom")
-
-#Experiment 1 2022
-correlations18S12022s<-data.frame(cor(s18SInnoc12022[,c(2:575,584,587)],use="pairwise.complete.obs"))
-#d__Eukaryota;p__Ochrophyta;c__Chrysophyceae;o__Synurales;f__Synurales;g__Synura;__ .70 correlation with observed cells and .80 correlation with relative
-#rename Synura
-names(s18SInnoc12022)[names(s18SInnoc12022) == "d__Eukaryota;p__Ochrophyta;c__Chrysophyceae;o__Synurales;f__Synurales;g__Synura;__"] <- "Synura"
-#plot correlation
-ggplot(s18SInnoc12022, aes(x=observed_treatment_cellperml, y=Synura)) + 
-  geom_point()+
-  stat_cor(method="pearson")+
-  labs(x ="Chrysosphaerella observed cells", 
-       y = "Synura relative sequence abundance")+
-  theme(panel.background = element_rect(fill = "white", colour = "grey50"),
-        axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
-        axis.text.x=element_text(size=10),axis.text.y = element_text(size=10),
-        legend.title=element_text(size=24),legend.text = element_text(size=14),
-        legend.position="bottom")
-
-#Experiment 2 2021
-correlations18S22021s<-data.frame(cor(s18SInnoc22021[,c(2:575,584,587)],use="pairwise.complete.obs"))
-#d__Eukaryota;p__Ochrophyta;c__Chrysophyceae;o__Synurales;f__Synurales;g__Mallomonas;s__Mallomonas_caudata 0.54 correlation with observed cells and 0.65 with relative
-#See how trachelomonas tracks
-cor.test(s18SInnoc22021$'d__Eukaryota;p__Euglenozoa;c__Euglenida;o__Euglenophyceae;f__Euglenaceae;g__Trachelomonas;s__Trachelomonas_sp.',s18SInnoc22021$observed_treatment_cellperml)
-#0.18, significant
-cor.test(s18SInnoc22021$'d__Eukaryota;p__Euglenozoa;c__Euglenida;o__Euglenophyceae;f__Euglenaceae;g__Trachelomonas;s__Trachelomonas_sp.',s18SInnoc22021$relative_inoculant_density_percent)
-#0.17, not significant
-
-#Experiment 2 2022
-correlations18S22022s<-data.frame(cor(s18SInnoc22022[,c(2:575,584,587)],use="pairwise.complete.obs"))
-#d__Eukaryota;p__Chlorophyta;c__Chlorophyceae;o__Chlorophyceae;f__Chlorophyceae;g__Chlorophyceae;s__Haematococcus_lacustris 0.67 correlation with observed cells and 0.74 correlation with relative
-#rename H. Lacustris
-names(s18SInnoc22022)[names(s18SInnoc22022) == "d__Eukaryota;p__Chlorophyta;c__Chlorophyceae;o__Chlorophyceae;f__Chlorophyceae;g__Chlorophyceae;s__Haematococcus_lacustris"] <- "Hpluvialis"
-#plot correlation
-ggplot(s18SInnoc22022, aes(x=observed_treatment_cellperml, y=Hpluvialis)) + 
-  geom_point()+
-  stat_cor(method="pearson")+
-  labs(x ="H. pluvialis observed cells", 
-       y = "H. pluvialis relative sequence abundance")+
-  theme(panel.background = element_rect(fill = "white", colour = "grey50"),
-        axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
-        axis.text.x=element_text(size=10),axis.text.y = element_text(size=10),
-        legend.title=element_text(size=24),legend.text = element_text(size=14),
-        legend.position="bottom")
-
-#Experiment 3 2022
-correlations18S32022s<-data.frame(cor(s18SInnoc32022[,c(2:575,584,587)],use="pairwise.complete.obs"))
-#d__Eukaryota;p__Ochrophyta;c__Chrysophyceae;o__Synurales;f__Synurales;g__Synura;__ 0.94 correlation with observed and 0.95 correlation with relative
-#rename Synura
-names(s18SInnoc32022)[names(s18SInnoc32022) == "d__Eukaryota;p__Ochrophyta;c__Chrysophyceae;o__Synurales;f__Synurales;g__Synura;__"] <- "Synura"
-#plot correlation
-ggplot(s18SInnoc32022, aes(x=observed_treatment_cellperml, y=Synura)) + 
-  geom_point()+
-  stat_cor(method="pearson")+
-  labs(x ="Chrysosphaerella observed cells", 
-       y = "Synura relative sequence abundance")+
-  theme(panel.background = element_rect(fill = "white", colour = "grey50"),
-        axis.title.x=element_text(size=20),axis.title.y=element_text(size=20),
-        axis.text.x=element_text(size=10),axis.text.y = element_text(size=10),
-        legend.title=element_text(size=24),legend.text = element_text(size=14),
-        legend.position="bottom")
-
-
-
-#look for correlations at the genus level to see if they match innoculants
-correlations18S22021g<-data.frame(cor(g18SInnoc22021[,c(2:331,340,343)],use="pairwise.complete.obs"))
-#d__Eukaryota;p__Diatomea;c__Coscinodiscophytina;o__Coscinodiscophytina;f__Melosirids;g__Aulacoseira 0.52 observed 0.49 relative
-
-#look for correlations for ASV level
-correlations18S22021ao<-t(data.frame(cor(a18SInnoc22021[,c(68400,68403)],a18SInnoc22021[,c(2:68391)],use="pairwise.complete.obs")))
-#nothing correlations more strong than 0.5
-
-#Subset excel sheet to create surrogate invaders eDNA spreadsheet for Abby and upload
-SurrogateInvaderseDNAt<-read.csv("SurrogateInvaderseDNAt.csv")
-eDNASurrInnoc<-merge(SurrogateInvaderseDNAt,Innoculation,by="sample.id")
-write.csv(eDNASurrInnoc, 'SurrogateInvaderseDNAmeta.csv')

@@ -2,6 +2,10 @@
 
 #Libraries
 library(vegan)
+library(plyr)
+
+#functions
+se<- function(x) sd(x)/sqrt(length(x))
 
 #Color vectors
 ExpYearcolvec<-c("#1b9e77","#7570b3","#66a61e","#e7298a","#d95f02")
@@ -20,6 +24,23 @@ ASV16S$'sample-id'<-NULL
 #reverse so columns are samples
 ASV16St<-data.frame(t(ASV16S), check.names=F)
 ASV16St$sample.id<-row.names(ASV16St)
+
+#Upload family table
+f16S<-read.csv("PMV3V4UMGC_asv_table_f.csv", header=T, check.names=F)
+names(f16S)
+#format data table so OTU name is row name
+row.names(f16S)<-f16S[,1]
+#Delete OTU id column now that OTU ID is rowname
+f16S$'sample-id'<-NULL
+#reverse so columns are samples
+f16St<-data.frame(t(f16S), check.names=F)
+f16St$sample.id<-row.names(f16St)
+sort(colSums(f16St[,1:945]))
+#d__Bacteria;p__Cyanobacteriota;c__Cyanobacteriia;o__Cyanobacteriales;f__Coleofasciculaceae most common
+summary(f16St$'d__Bacteria;p__Cyanobacteriota;c__Cyanobacteriia;o__Cyanobacteriales;f__Coleofasciculaceae')
+#mean 1788 standard error
+se(f16St$'d__Bacteria;p__Cyanobacteriota;c__Cyanobacteriia;o__Cyanobacteriales;f__Coleofasciculaceae')
+#standard error 58
 
 #Upload genus table
 g16S<-read.csv("PMV3V4UMGC_asv_table_g.csv", header=T, check.names=F)
@@ -50,6 +71,12 @@ names(uni16SInnoc)
 PM_16S_uni<-as.matrix(uni16SInnoc[,c(1:495)])
 #UNI-Create overall environmental data matrix for community analysis with uni distances
 uni16SInnoc_env<-uni16SInnoc[,c(496:ncol(uni16SInnoc))]
+
+#merve ASVs and sample IDs
+a16SInnoc<-merge(ASV16St, Innoculation, by="sample.id")
+#eliminated columns with 0 sum
+a16SInnoc_cleaned<-a16SInnoc[, -which(numcolwise(sum)(a16SInnoc) < 1)]
+#25984 ASVs total in samples
 
 #merge genus level table and sample ID's
 g16SInnoc<-merge(g16St,Innoculation,by="sample.id")
